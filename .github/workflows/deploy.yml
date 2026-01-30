@@ -75,11 +75,9 @@ jobs:
           mkdir -p volumes/storage
           mkdir -p volumes/api
           mkdir -p volumes/logs
-          # Postgres requirements: data directory must be 0700 or 0750 usually, but ownership is key.
-          # We brute force 777 for the parent to ensure mapping works, 
-          # but really we might need to chown to 999:999 for postgres.
-          # Let's try flexible permissions first.
-          sudo chmod -R 777 volumes
+          # Use docker to fix permissions since sudo is not available/interactive
+          # This works because we have access to the docker socket
+          docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target"
 
       - name: Deploy with Docker Compose
         run: |
