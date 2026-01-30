@@ -184,6 +184,7 @@ services:
   db:
     container_name: supabase-db
     image: supabase/postgres:15.8.1.085
+    platform: linux/amd64
     restart: unless-stopped
     ports:
       - 5433:5432
@@ -196,6 +197,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: ${POSTGRES_PORT}

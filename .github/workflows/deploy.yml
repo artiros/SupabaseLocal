@@ -63,6 +63,10 @@ jobs:
           # PostgREST
           PGRST_DB_SCHEMAS=public,storage,graphql_public
           
+          # Phone Auth (Defaults to quiet warnings)
+          ENABLE_PHONE_SIGNUP=false
+          ENABLE_PHONE_AUTOCONFIRM=false
+          
           # Studio
           STUDIO_DEFAULT_ORGANIZATION=Triathlon
           STUDIO_DEFAULT_PROJECT=TriathlonHelper
