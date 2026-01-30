@@ -192,7 +192,7 @@ services:
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 5s
       timeout: 5s
       retries: 10

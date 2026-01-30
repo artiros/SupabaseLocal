@@ -45,10 +45,10 @@ END
 $$;
 
 -- Set passwords (use POSTGRES_PASSWORD from env)
-ALTER ROLE supabase_admin WITH PASSWORD 'SupabaseNAS2024SecurePassword!';
-ALTER ROLE supabase_auth_admin WITH PASSWORD 'SupabaseNAS2024SecurePassword!';
-ALTER ROLE supabase_storage_admin WITH PASSWORD 'SupabaseNAS2024SecurePassword!';
-ALTER ROLE authenticator WITH PASSWORD 'SupabaseNAS2024SecurePassword!';
+ALTER ROLE supabase_admin WITH PASSWORD 'REPLACE_ME_PASSWORD';
+ALTER ROLE supabase_auth_admin WITH PASSWORD 'REPLACE_ME_PASSWORD';
+ALTER ROLE supabase_storage_admin WITH PASSWORD 'REPLACE_ME_PASSWORD';
+ALTER ROLE authenticator WITH PASSWORD 'REPLACE_ME_PASSWORD';
 
 -- Grant role memberships
 GRANT anon TO authenticator;

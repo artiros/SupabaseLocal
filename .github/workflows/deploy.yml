@@ -23,7 +23,7 @@ jobs:
           SERVICE_ROLE_KEY=${{ secrets.SERVICE_ROLE_KEY }}
           DASHBOARD_USERNAME=${{ secrets.DASHBOARD_USERNAME }}
           DASHBOARD_PASSWORD=${{ secrets.DASHBOARD_PASSWORD }}
-          PG_META_CRYPTO_KEY=f69f2e3c4d5e6f7a8b9c0d1e2f3a4b5c
+          PG_META_CRYPTO_KEY=REPLACE_ME_PG_META_CRYPTO_KEY_32_CHARS
           
           # Database
           POSTGRES_HOST=db
@@ -78,10 +78,11 @@ jobs:
           
           # Inject the correct password into roles.sql from the secret
           # This ensures the DB roles match the services' expectations
-          sed -i "s/'SupabaseNAS2024SecurePassword!'/'${{ secrets.POSTGRES_PASSWORD }}'/" volumes/db/roles.sql || true
+          sed -i "s/'REPLACE_ME_PASSWORD'/'${{ secrets.POSTGRES_PASSWORD }}'/" volumes/db/roles.sql || true
           
-          # Use docker to fix permissions (recursively on all volumes)
-          docker run --rm -v $PWD/volumes:/target alpine sh -c "chown -R 999:999 /target/db/data || chmod -R 777 /target"
+          # Use docker to fix permissions
+          # 999 is the UID for the postgres user in the supabase image
+          docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
       - name: Deploy with Docker Compose
         run: |

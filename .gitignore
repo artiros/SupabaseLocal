@@ -1,6 +1,9 @@
 .env
+.env.*
+node_modules/
 volumes/db/data/
-volumes/storage/*
-!volumes/storage/.gitkeep
+volumes/storage/
 *.tar
 *.log
+_deploy_exec.sh
+_provision_temp.sh
