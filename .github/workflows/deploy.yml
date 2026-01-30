@@ -13,6 +13,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: false # Prevent permission errors with Docker volumes
+
+      - name: Manual Cleanup
+        run: |
+          # Use Docker to clean up everything EXCEPT the volumes/db/data directory
+          # this avoids the EACCES error and preserves your database
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
 
       - name: Create .env file
         env:
