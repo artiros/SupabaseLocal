@@ -69,6 +69,18 @@ jobs:
           IMGPROXY_ENABLE_WEBP_DETECTION=true
           EOF
 
+      - name: Prepare Volumes (Fix Permissions)
+        run: |
+          mkdir -p volumes/db/data
+          mkdir -p volumes/storage
+          mkdir -p volumes/api
+          mkdir -p volumes/logs
+          # Postgres requirements: data directory must be 0700 or 0750 usually, but ownership is key.
+          # We brute force 777 for the parent to ensure mapping works, 
+          # but really we might need to chown to 999:999 for postgres.
+          # Let's try flexible permissions first.
+          sudo chmod -R 777 volumes
+
       - name: Deploy with Docker Compose
         run: |
           docker compose up -d --remove-orphans
