@@ -92,7 +92,18 @@ jobs:
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
       - name: Deploy with Docker Compose
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ANON_KEY: ${{ secrets.ANON_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+          DASHBOARD_USERNAME: ${{ secrets.DASHBOARD_USERNAME }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
+          echo "Checking directory status..."
+          ls -la
+          echo "Starting stack..."
           docker compose up -d --remove-orphans
           
       - name: Show Logs on Failure
