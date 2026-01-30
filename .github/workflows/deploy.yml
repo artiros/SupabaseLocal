@@ -14,15 +14,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create .env file
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ANON_KEY: ${{ secrets.ANON_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+          DASHBOARD_USERNAME: ${{ secrets.DASHBOARD_USERNAME }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
-          cat <<'EOF' > .env
-          # Secrets
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          ANON_KEY=${{ secrets.ANON_KEY }}
-          SERVICE_ROLE_KEY=${{ secrets.SERVICE_ROLE_KEY }}
-          DASHBOARD_USERNAME=${{ secrets.DASHBOARD_USERNAME }}
-          DASHBOARD_PASSWORD=${{ secrets.DASHBOARD_PASSWORD }}
+          if [ -z "$POSTGRES_PASSWORD" ]; then echo "❌ POSTGRES_PASSWORD secret is empty!" && exit 1; fi
+          
+          cat <<EOF > .env
+          # Secrets (Injected from GitHub)
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          JWT_SECRET=$JWT_SECRET
+          ANON_KEY=$ANON_KEY
+          SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+          DASHBOARD_USERNAME=$DASHBOARD_USERNAME
+          DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
           PG_META_CRYPTO_KEY=REPLACE_ME_PG_META_CRYPTO_KEY_32_CHARS
           
           # Database
@@ -34,21 +44,21 @@ jobs:
           KONG_HTTP_PORT=8100
           KONG_HTTPS_PORT=8143
           
-          # Auth & API URLs (using SERVER_IP secret)
-          SERVER_IP=${{ secrets.SERVER_IP }}
-          SUPABASE_PUBLIC_URL=http://${{ secrets.SERVER_IP }}:8100
-          API_EXTERNAL_URL=http://${{ secrets.SERVER_IP }}:8100
-          SITE_URL=http://${{ secrets.SERVER_IP }}:7001
-          ADDITIONAL_REDIRECT_URLS=http://${{ secrets.SERVER_IP }}:7001,http://localhost:5173,http://localhost:3000
+          # Auth & API URLs
+          SERVER_IP=$SERVER_IP
+          SUPABASE_PUBLIC_URL=http://$SERVER_IP:8100
+          API_EXTERNAL_URL=http://$SERVER_IP:8100
+          SITE_URL=http://$SERVER_IP:7001
+          ADDITIONAL_REDIRECT_URLS=http://$SERVER_IP:7001,http://localhost:5173,http://localhost:3000
           
-          # Auth Configuration
+          # Configuration
           JWT_EXPIRY=3600
           DISABLE_SIGNUP=false
           ENABLE_EMAIL_SIGNUP=true
           ENABLE_ANONYMOUS_USERS=false
           ENABLE_EMAIL_AUTOCONFIRM=true
           
-          # Email Settings (Defaults)
+          # Email Settings
           SMTP_ADMIN_EMAIL=admin@example.com
           SMTP_HOST=supabase-mail
           SMTP_PORT=2500
@@ -63,7 +73,7 @@ jobs:
           # PostgREST
           PGRST_DB_SCHEMAS=public,storage,graphql_public
           
-          # Phone Auth (Defaults to quiet warnings)
+          # Phone Auth
           ENABLE_PHONE_SIGNUP=false
           ENABLE_PHONE_AUTOCONFIRM=false
           
