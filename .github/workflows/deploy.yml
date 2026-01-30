@@ -9,6 +9,7 @@ jobs:
   deploy:
     name: Deploy to Local Server
     runs-on: self-hosted
+    environment: Supabase
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
