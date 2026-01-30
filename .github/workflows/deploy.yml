@@ -112,15 +112,16 @@ jobs:
           DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
+          echo "Current working directory: $(pwd)"
           echo "Checking directory status..."
           ls -la
           echo "Starting stack..."
-          docker compose up -d --remove-orphans
+          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d --remove-orphans
           
       - name: Show Logs on Failure
         if: failure()
         run: |
           echo "=== DB Logs ==="
-          docker compose logs db || true
+          docker compose -f ${{ github.workspace }}/docker-compose.yml logs db || true
           echo "=== All Services Status ==="
-          docker compose ps
+          docker compose -f ${{ github.workspace }}/docker-compose.yml ps
