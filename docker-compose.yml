@@ -192,7 +192,7 @@ services:
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -206,7 +206,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXPIRY}
-    command: [ "postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "log_min_messages=fatal" ]
+    command: [ "postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "log_min_messages=error" ]
 
 volumes:
   db-config:

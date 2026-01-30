@@ -78,7 +78,7 @@ jobs:
           
           # Inject the correct password into roles.sql from the secret
           # This ensures the DB roles match the services' expectations
-          sed -i "s/'REPLACE_ME_PASSWORD'/'${{ secrets.POSTGRES_PASSWORD }}'/" volumes/db/roles.sql || true
+          sed -i "s#REPLACE_ME_PASSWORD#${{ secrets.POSTGRES_PASSWORD }}#g" volumes/db/roles.sql || true
           
           # Use docker to fix permissions
           # 999 is the UID for the postgres user in the supabase image
@@ -87,3 +87,11 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           docker compose up -d --remove-orphans
+          
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "=== DB Logs ==="
+          docker compose logs db || true
+          echo "=== All Services Status ==="
+          docker compose ps
