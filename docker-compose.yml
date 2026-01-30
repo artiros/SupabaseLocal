@@ -198,6 +198,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    env_file:
+      - .env
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: ${POSTGRES_PORT}

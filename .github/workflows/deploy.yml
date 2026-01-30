@@ -15,7 +15,7 @@ jobs:
 
       - name: Create .env file
         run: |
-          cat <<EOF > .env
+          cat <<'EOF' > .env
           # Secrets
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -74,6 +74,8 @@ jobs:
           EOF
 
       - name: Prepare Config and Permissions
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           mkdir -p volumes/db/data
           mkdir -p volumes/storage
@@ -82,7 +84,8 @@ jobs:
           
           # Inject the correct password into roles.sql from the secret
           # This ensures the DB roles match the services' expectations
-          sed -i "s#REPLACE_ME_PASSWORD#${{ secrets.POSTGRES_PASSWORD }}#g" volumes/db/roles.sql || true
+          # Using environment variable for sed to handle complex passwords
+          sed -i "s#REPLACE_ME_PASSWORD#$POSTGRES_PASSWORD#g" volumes/db/roles.sql || true
           
           # Use docker to fix permissions
           # 999 is the UID for the postgres user in the supabase image
