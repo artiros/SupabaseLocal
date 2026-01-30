@@ -69,15 +69,19 @@ jobs:
           IMGPROXY_ENABLE_WEBP_DETECTION=true
           EOF
 
-      - name: Prepare Volumes (Fix Permissions)
+      - name: Prepare Config and Permissions
         run: |
           mkdir -p volumes/db/data
           mkdir -p volumes/storage
           mkdir -p volumes/api
           mkdir -p volumes/logs
-          # Use docker to fix permissions since sudo is not available/interactive
-          # This works because we have access to the docker socket
-          docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target"
+          
+          # Inject the correct password into roles.sql from the secret
+          # This ensures the DB roles match the services' expectations
+          sed -i "s/'SupabaseNAS2024SecurePassword!'/'${{ secrets.POSTGRES_PASSWORD }}'/" volumes/db/roles.sql || true
+          
+          # Use docker to fix permissions (recursively on all volumes)
+          docker run --rm -v $PWD/volumes:/target alpine sh -c "chown -R 999:999 /target/db/data || chmod -R 777 /target"
 
       - name: Deploy with Docker Compose
         run: |
