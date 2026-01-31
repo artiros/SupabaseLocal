@@ -172,6 +172,7 @@ jobs:
           docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
 
       - name: Deploy Rest of the Stack
+        if: always()
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
