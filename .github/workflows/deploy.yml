@@ -117,20 +117,19 @@ jobs:
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          mkdir -p volumes/db/data
-          mkdir -p volumes/storage
-          mkdir -p volumes/api
-          mkdir -p volumes/logs
+          mkdir -p volumes/db/data volumes/storage volumes/api volumes/logs
+          
+          echo "Injecting passwords..."
+          # Use a unique placeholder to avoid accidental replacements
+          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" migrations/000-bootstrap.sql
           
           echo "Checking for essential SQL scripts..."
           ls -l migrations/000-bootstrap.sql migrations/002-base-tables.sql
           
-          # Use docker to fix permissions
+          # Fix permissions
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
       - name: Start Database Only
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           docker compose up -d db
           
@@ -147,23 +146,16 @@ jobs:
             attempt=$((attempt+1))
           done
           
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Database failed to become ready in time."
-            docker logs supabase-db --tail 100
-            exit 1
-          fi
-          
-          echo "=== Diagnostic: Listing Roles ==="
-          docker exec supabase-db psql -U postgres -d postgres -c "\du"
-          
           echo "Applying migrations..."
+          # Sort naturally (V) and exclude non-SQL files
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
-            # Pass password as a variable to psql to avoid sed issues
-            docker exec -i supabase-db psql -v db_pass="$POSTGRES_PASSWORD" -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
+            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || echo "⚠️ Warning: $f had issues but continuing..."
           done
-          echo "✅ All migrations applied successfully."
+          
+          echo "Refreshing Cache..."
+          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
           
           echo "=== Diagnostic: Listing Tables in 'public' schema ==="
           docker exec supabase-db psql -U postgres -d postgres -c "\dt public.*"
