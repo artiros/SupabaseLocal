@@ -14,10 +14,10 @@ Self-hosted Supabase deployment for the TriathlonHelper project, running on Dock
 
 | Service | URL |
 |---------|-----|
-| **API Gateway** | http://192.168.50.212:8100 |
-| **Studio Dashboard** | http://192.168.50.212:8100 |
-| **PostgreSQL** | postgresql://postgres@192.168.50.212:5432/postgres |
-| **Connection Pooler** | postgresql://postgres@192.168.50.212:6543/postgres |
+| **API Gateway** | http://192.168.50.44:8100 |
+| **Studio Dashboard** | http://192.168.50.44:8100 |
+| **PostgreSQL** | postgresql://postgres@192.168.50.44:5432/postgres |
+| **Connection Pooler** | postgresql://postgres@192.168.50.44:6543/postgres |
 
 ### Dashboard Credentials
 
@@ -56,14 +56,14 @@ All configuration is in the `.env` file. Key settings:
 
 2. Import to self-hosted:
    ```bash
-   psql -h 192.168.50.212 -p 5432 -U postgres -d postgres < cloud_backup.sql
+   psql -h 192.168.50.44 -p 5432 -U postgres -d postgres < cloud_backup.sql
    ```
 
 ## Troubleshooting
 
 ### View logs
 ```bash
-ssh Artiros@192.168.50.212
+ssh Artiros@192.168.50.44
 cd /volume2/docker/supabase
 sudo docker-compose logs -f
 ```

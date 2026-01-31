@@ -1,6 +1,6 @@
 # Supabase Self-Hosted - Lightweight Version
 # 8 essential containers only (removed: realtime, functions, analytics, vector, supavisor)
-# API Gateway: http://192.168.50.212:8100
+# API Gateway: http://192.168.50.44:8100
 
 name: supabase
 

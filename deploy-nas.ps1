@@ -3,7 +3,7 @@
 
 param(
     [string]$User = "Artiros",
-    [string]$Host_IP = "192.168.50.212",
+    [string]$Host_IP = "192.168.50.44",
     [string]$RemotePath = "/volume2/docker/supabase"
 )
 
