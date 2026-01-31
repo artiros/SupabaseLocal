@@ -40,7 +40,7 @@ jobs:
           SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
           DASHBOARD_USERNAME=$DASHBOARD_USERNAME
           DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
-          PG_META_CRYPTO_KEY=REPLACE_ME_PG_META_CRYPTO_KEY_32_CHARS
+          PG_META_CRYPTO_KEY=your-encryption-key-32-chars-min-meta
           POSTGRES_HOST=db
           POSTGRES_DB=postgres
           POSTGRES_PORT=5432
@@ -65,6 +65,8 @@ jobs:
           STUDIO_DEFAULT_ORGANIZATION=Triathlon
           STUDIO_DEFAULT_PROJECT=TriathlonHelper
           IMGPROXY_ENABLE_WEBP_DETECTION=true
+          ENABLE_PHONE_SIGNUP=false
+          ENABLE_PHONE_AUTOCONFIRM=false
           EOF
 
       - name: Prepare DB Directories and Permissions
