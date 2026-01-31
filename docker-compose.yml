@@ -192,18 +192,19 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/00-roles.sql
-      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/01-supabase.sql
-      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/02-jwt.sql
-      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/03-realtime.sql
-      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/04-webhooks.sql
+      - ./volumes/db/00-setup-schemas.sql:/docker-entrypoint-initdb.d/00-setup-schemas.sql
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/02-supabase.sql
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/03-jwt.sql
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/04-realtime.sql
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/05-webhooks.sql
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
       interval: 10s
-      timeout: 5s
-      retries: 20
+      timeout: 10s
+      retries: 10
       start_period: 60s
     env_file:
       - .env

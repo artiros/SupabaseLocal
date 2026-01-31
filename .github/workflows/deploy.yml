@@ -122,13 +122,14 @@ jobs:
           mkdir -p volumes/api
           mkdir -p volumes/logs
           
-          # Inject the correct password into roles.sql from the secret
-          # This ensures the DB roles match the services' expectations
-          # Using environment variable for sed to handle complex passwords
-          sed -i "s#REPLACE_ME_PASSWORD#$POSTGRES_PASSWORD#g" volumes/db/roles.sql || true
+          echo "Injecting passwords into roles.sql..."
+          # Use a temporary file to avoid corruption if sed fails
+          sed "s#REPLACE_ME_PASSWORD#$POSTGRES_PASSWORD#g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
+          
+          echo "Checking for essential SQL scripts..."
+          ls -l volumes/db/00-setup-schemas.sql volumes/db/roles.sql
           
           # Use docker to fix permissions
-          # 999 is the UID for the postgres user in the supabase image
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
       - name: Deploy with Docker Compose
