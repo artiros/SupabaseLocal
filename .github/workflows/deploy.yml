@@ -11,20 +11,32 @@ jobs:
     runs-on: self-hosted
     environment: Supabase
     steps:
-      - name: Pre-Deployment Cleanup
+      - name: Stop Existing Services
         run: |
-          # 1. Stop existing containers if the compose file exists (relative to cwd)
+          # Only try to stop if the file exists from a previous successful checkout
           if [ -f "docker-compose.yml" ]; then
             docker compose down --remove-orphans || true
           fi
 
-          # 2. Use Docker to clean up everything EXCEPT the volumes directory
-          docker run --rm -v $PWD:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+      - name: Environment Diagnostics
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          echo "PWD: $PWD"
+          ls -la
           
+      - name: Fix Permissions for Checkout
+        run: |
+          # If volumes exists, make sure it's accessible so checkout doesn't fail
+          if [ -d "volumes" ]; then
+            docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work/volumes || true"
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          clean: false # We already cleaned manually; prevent permission errors with Docker volumes
+          # Use default checkout which includes cleaning, 
+          # we fixed permissions above to allow this.
+          clean: true 
 
       - name: Create .env file
         env:
