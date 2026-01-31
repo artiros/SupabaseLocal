@@ -122,13 +122,13 @@ jobs:
           mkdir -p volumes/api
           mkdir -p volumes/logs
           
-          echo "Injecting passwords into roles.sql and 000-roles.sql..."
-          # Update both files to be sure
+          echo "Injecting passwords into bootstrap and roles..."
+          # Update both files for redundancy
+          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" migrations/000-bootstrap.sql > migrations/000-bootstrap.sql.tmp && mv migrations/000-bootstrap.sql.tmp migrations/000-bootstrap.sql
           sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
-          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" migrations/000-roles.sql > migrations/000-roles.sql.tmp && mv migrations/000-roles.sql.tmp migrations/000-roles.sql
           
           echo "Checking for essential SQL scripts..."
-          ls -l migrations/000-roles.sql migrations/001-supabase-core.sql migrations/002-base-tables.sql
+          ls -l migrations/000-bootstrap.sql migrations/002-base-tables.sql
           
           # Use docker to fix permissions
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
