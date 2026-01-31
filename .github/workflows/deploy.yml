@@ -11,8 +11,10 @@ jobs:
     runs-on: self-hosted
     environment: Supabase
     steps:
-      - name: Fix Permissions for Checkout
+      - name: Stop Existing Services and Cleanup
         run: |
+          # Stop everything first to release file locks
+          docker compose down || true
           # Use Docker's root privileges to unlock the workspace for the runner
           # We make EVERYTHING writable so the 'actions/checkout' cleanup can work
           docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work || true"
@@ -67,10 +69,13 @@ jobs:
 
       - name: Prepare DB Directories and Permissions
         run: |
-          # Phase 2: Secure the DB folder specifically for Postgres boot
+          # Ensure folders exist
           mkdir -p volumes/db/data
+          # Secure the DB folder specifically for Postgres boot
+          # We try common Postgres UIDs (999 and 70) and set strict 700 mode
           docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "
-            chown -R 999:999 /work/volumes/db/data && 
+            chown -R 999:999 /work/volumes/db/data || true && 
+            chown -R 70:70 /work/volumes/db/data || true && 
             chmod 700 /work/volumes/db/data
           "
 
@@ -84,9 +89,20 @@ jobs:
         run: |
           echo "Waiting for database to be ready via TCP..."
           # Use TCP (127.0.0.1) instead of socket to avoid permission issues during bootstrap
-          until docker exec supabase-db pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
+          # We wait up to 120 seconds
+          max_attempts=60
+          attempt=0
+          until docker exec supabase-db pg_isready -h 127.0.0.1 -p 5432 -U postgres || [ $attempt -eq $max_attempts ]; do
+            echo "Waiting... (Attempt $attempt/$max_attempts)"
             sleep 2
+            attempt=$((attempt+1))
           done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Database failed to start."
+            docker logs supabase-db --tail 50
+            exit 1
+          fi
           
           echo "Injecting passwords into bootstrap..."
           sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
