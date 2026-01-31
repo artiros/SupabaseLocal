@@ -44,7 +44,7 @@ CREATE POLICY "Users can view their own activities" ON public.activities FOR ALL
 
 -- 3. PLANNED ACTIVITIES
 CREATE TABLE IF NOT EXISTS public.planned_activities (
-  id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid,
   name text,
   type text,
@@ -60,7 +60,7 @@ CREATE POLICY "Users can view their own planned activities" ON public.planned_ac
 
 -- 4. GOALS
 CREATE TABLE IF NOT EXISTS public.goals (
-  id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid,
   name text,
   type text,
@@ -76,7 +76,7 @@ CREATE POLICY "Users can view their own goals" ON public.goals FOR ALL USING (au
 
 -- 5. RACES
 CREATE TABLE IF NOT EXISTS public.races (
-  id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid,
   name text,
   date date,
