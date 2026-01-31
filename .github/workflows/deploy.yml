@@ -132,21 +132,19 @@ jobs:
           # Use docker to fix permissions
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
-      - name: Deploy with Docker Compose
+      - name: Start Database Only
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          docker compose up -d --remove-orphans
+          docker compose up -d db
           
-      - name: Apply Migrations
+      - name: Apply Migrations (Core + App)
         run: |
           echo "Waiting for database to be ready..."
           max_attempts=60
           attempt=0
-          # We wait until psql can actually log in and execute a query
-          # This ensures the 'postgres' role and the server are fully initialized
           until docker exec supabase-db psql -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-            echo "Waiting for DB to be fully ready... (Attempt $attempt/$max_attempts)"
+            echo "Waiting for DB to be ready... (Attempt $attempt/$max_attempts)"
             sleep 3
             attempt=$((attempt+1))
           done
@@ -158,13 +156,18 @@ jobs:
           fi
           
           echo "Applying migrations..."
-          # Sort migrations numerically/chronologically (natural sort)
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
             docker exec -i supabase-db psql -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
           echo "✅ All migrations applied successfully."
+
+      - name: Deploy Rest of the Stack
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          docker compose up -d --remove-orphans
           
       - name: Show Logs on Failure
         if: failure()
