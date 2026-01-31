@@ -13,14 +13,13 @@ jobs:
     steps:
       - name: Pre-Deployment Cleanup
         run: |
-          # 1. Stop existing containers if the compose file exists from a previous run
-          if [ -f "${{ github.workspace }}/docker-compose.yml" ]; then
-            docker compose -f ${{ github.workspace }}/docker-compose.yml down --remove-orphans || true
+          # 1. Stop existing containers if the compose file exists (relative to cwd)
+          if [ -f "docker-compose.yml" ]; then
+            docker compose down --remove-orphans || true
           fi
 
           # 2. Use Docker to clean up everything EXCEPT the volumes directory
-          # This avoids permission issues on self-hosted runners while preserving user data
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+          docker run --rm -v $PWD:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
           
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -119,23 +118,24 @@ jobs:
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          docker compose -f ${{ github.workspace }}/docker-compose.yml up -d --remove-orphans
+          docker compose up -d --remove-orphans
           
       - name: Apply Migrations
         run: |
           echo "Waiting for database to be ready..."
           max_attempts=60
           attempt=0
-          # Wait for pg_isready AND for the 'postgres' role to be available
+          # We wait until psql can actually log in and execute a query
+          # This ensures the 'postgres' role and the server are fully initialized
           until docker exec supabase-db psql -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-            echo "Waiting for DB roles and connection... (Attempt $attempt/$max_attempts)"
+            echo "Waiting for DB to be fully ready... (Attempt $attempt/$max_attempts)"
             sleep 3
             attempt=$((attempt+1))
           done
           
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Database/Roles failed to become ready in time."
-            docker logs supabase-db --tail 50
+            echo "❌ Database failed to become ready in time."
+            docker logs supabase-db --tail 100
             exit 1
           fi
           
@@ -151,7 +151,9 @@ jobs:
       - name: Show Logs on Failure
         if: failure()
         run: |
+          echo "=== Workspace Contents ==="
+          ls -la
           echo "=== DB Logs ==="
-          docker compose -f ${{ github.workspace }}/docker-compose.yml logs db || true
+          docker compose logs db --tail 100 || true
           echo "=== All Services Status ==="
-          docker compose -f ${{ github.workspace }}/docker-compose.yml ps
+          docker compose ps
