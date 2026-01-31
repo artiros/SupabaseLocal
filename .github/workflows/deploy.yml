@@ -105,11 +105,12 @@ jobs:
           fi
           
           echo "Injecting passwords into bootstrap..."
-          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
+          # Update path to match new timestamped name
+          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/20240101000000_bootstrap.sql
           
           echo "Applying Bootstrap (Roles & Schemas)..."
           # Run the bootstrap via the 127.0.0.1 bridge
-          docker exec -i supabase-db psql -h 127.0.0.1 -U postgres -d postgres < supabase/migrations/000-bootstrap.sql
+          docker exec -i supabase-db psql -h 127.0.0.1 -U postgres -d postgres < supabase/migrations/20240101000000_bootstrap.sql
 
       - name: Start Rest of Stack
         run: |
@@ -146,8 +147,8 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           echo "Pushing final migrations to localhost:5433..."
-          # Use the renamed binary
-          ./supabase-cli db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
+          # Added --non-interactive to bypass the [Y/n] prompt
+          ./supabase-cli db push --non-interactive --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
           
           echo "Refreshing Cache..."
           docker exec supabase-db psql -h 127.0.0.1 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
