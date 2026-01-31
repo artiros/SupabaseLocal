@@ -1,8 +1,8 @@
 -- Migration: Encrypt API keys in system_settings
 -- Uses pgcrypto extension with encryption key from environment variable
 
--- 1. Enable pgcrypto extension
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- 1. Enable pgcrypto extension (ALREADY ENABLED IN BOOTSTRAP)
+-- CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 2. Create helper functions for encryption/decryption
 -- The encryption key is read from a PostgreSQL setting that should be set via environment variable
