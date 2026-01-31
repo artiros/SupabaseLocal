@@ -151,6 +151,7 @@ jobs:
           ./supabase-cli db push --yes --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
           
           echo "Refreshing Cache..."
+          docker exec supabase-db psql -h 127.0.0.1 -U postgres -d postgres -c "NOTIFY pgrst, 'reload config'"
           docker exec supabase-db psql -h 127.0.0.1 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
 
       - name: Apply Post-Boot Setup (Storage)

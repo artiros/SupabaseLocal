@@ -54,3 +54,8 @@ GRANT ALL ON SCHEMA storage TO supabase_admin, supabase_storage_admin;
 
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated, service_role;
+
+-- 8. DEFAULT PRIVILEGES (Ensures future tables are visible to API)
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
