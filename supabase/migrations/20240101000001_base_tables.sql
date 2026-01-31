@@ -74,6 +74,23 @@ CREATE TABLE IF NOT EXISTS public.goals (
 ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own goals" ON public.goals FOR ALL USING (auth.uid() = user_id);
 
+-- 4.5 GOALS MILESTONES
+CREATE TABLE IF NOT EXISTS public.goals_milestones (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid,
+  goal_id uuid REFERENCES public.goals(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  target_date date NOT NULL,
+  target_distance integer,
+  target_time_seconds integer,
+  completed_at timestamptz,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.goals_milestones ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own milestones" ON public.goals_milestones FOR ALL USING (auth.uid() = user_id);
+
 -- 5. RACES
 CREATE TABLE IF NOT EXISTS public.races (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -143,6 +160,7 @@ CREATE POLICY "Users can insert own documents" ON public.documents FOR INSERT WI
 CREATE INDEX IF NOT EXISTS idx_activities_user_id ON public.activities(user_id);
 CREATE INDEX IF NOT EXISTS idx_planned_activities_user_id ON public.planned_activities(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON public.goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_goals_milestones_goal_id ON public.goals_milestones(goal_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON public.training_plan_sessions(user_id);
 
 -- 11. BASE PERMISSIONS
