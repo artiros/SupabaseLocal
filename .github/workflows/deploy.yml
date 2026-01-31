@@ -1,175 +1,32 @@
-name: Deploy SupabaseLocal
+name: Deploy Migrations to Supabase (Cloud)
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Deploy to Local Server
-    runs-on: self-hosted
+    name: Cloud Migration Push
+    runs-on: ubuntu-latest
     environment: Supabase
     steps:
-      - name: Stop Existing Services
-        run: |
-          # Only try to stop if the file exists from a previous successful checkout
-          if [ -f "docker-compose.yml" ]; then
-            docker compose down --remove-orphans || true
-          fi
-          
-          # 2. Use Docker to clean up application files EXCEPT the volumes directory.
-          # We NEVER wipe /volumes because that is where the persistent user data lives.
-          docker run --rm -v $PWD:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
-
-      - name: Environment Diagnostics
-        run: |
-          echo "Workspace: ${{ github.workspace }}"
-          echo "PWD: $PWD"
-          ls -la
-          
-      - name: Fix Permissions for Checkout
-        run: |
-          # If volumes exists, make sure it's accessible so checkout doesn't fail
-          if [ -d "volumes" ]; then
-            docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work/volumes || true"
-          fi
-
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          # Use default checkout which includes cleaning, 
-          # we fixed permissions above to allow this.
-          clean: true 
+          version: 1.204.0
 
-      - name: Create .env file
+      - name: Deploy Migrations to Remote Project
         env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ANON_KEY: ${{ secrets.ANON_KEY }}
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
-          DASHBOARD_USERNAME: ${{ secrets.DASHBOARD_USERNAME }}
-          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          if [ -z "$POSTGRES_PASSWORD" ]; then echo "❌ POSTGRES_PASSWORD secret is empty!" && exit 1; fi
+          # Link to your Cloud project using its unique ID (abcde-fghij-klmn)
+          # We use the DB password to authenticate the push
+          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} -p ${{ secrets.SUPABASE_DB_PASSWORD }}
           
-          cat <<EOF > .env
-          # Secrets (Injected from GitHub)
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-          JWT_SECRET=$JWT_SECRET
-          ANON_KEY=$ANON_KEY
-          SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
-          DASHBOARD_USERNAME=$DASHBOARD_USERNAME
-          DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
-          PG_META_CRYPTO_KEY=REPLACE_ME_PG_META_CRYPTO_KEY_32_CHARS
-          
-          # Database
-          POSTGRES_HOST=db
-          POSTGRES_DB=postgres
-          POSTGRES_PORT=5432
-          
-          # API Gateway
-          KONG_HTTP_PORT=8100
-          KONG_HTTPS_PORT=8143
-          
-          # Auth & API URLs
-          SERVER_IP=$SERVER_IP
-          SUPABASE_PUBLIC_URL=http://$SERVER_IP:8100
-          API_EXTERNAL_URL=http://$SERVER_IP:8100
-          SITE_URL=http://$SERVER_IP:7001
-          ADDITIONAL_REDIRECT_URLS=http://$SERVER_IP:7001,http://localhost:5173,http://localhost:3000
-          
-          # Configuration
-          JWT_EXPIRY=3600
-          DISABLE_SIGNUP=false
-          ENABLE_EMAIL_SIGNUP=true
-          ENABLE_ANONYMOUS_USERS=false
-          ENABLE_EMAIL_AUTOCONFIRM=true
-          
-          # Email Settings
-          SMTP_ADMIN_EMAIL=admin@example.com
-          SMTP_HOST=supabase-mail
-          SMTP_PORT=2500
-          SMTP_USER=fake_mail_user
-          SMTP_PASS=fake_mail_password
-          SMTP_SENDER_NAME=TriathlonHelper
-          MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
-          MAILER_URLPATHS_INVITE="/auth/v1/verify"
-          MAILER_URLPATHS_RECOVERY="/auth/v1/verify"
-          MAILER_URLPATHS_EMAIL_CHANGE="/auth/v1/verify"
-          
-          # PostgREST
-          PGRST_DB_SCHEMAS=public,storage,graphql_public
-          
-          # Phone Auth
-          ENABLE_PHONE_SIGNUP=false
-          ENABLE_PHONE_AUTOCONFIRM=false
-          
-          # Studio
-          STUDIO_DEFAULT_ORGANIZATION=Triathlon
-          STUDIO_DEFAULT_PROJECT=TriathlonHelper
-          IMGPROXY_ENABLE_WEBP_DETECTION=true
-          EOF
-
-      - name: Prepare Config and Permissions
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        run: |
-          mkdir -p volumes/db/data volumes/storage volumes/api volumes/logs
-          
-          echo "Injecting passwords for CLI migration..."
-          # Replace placeholder in the bootstrap script
-          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
-          
-          # Fix permissions for the volumes
-          docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
-
-      - name: Start Database Only
-        run: |
-          docker compose up -d db
-          
-      - name: Apply Migrations using Supabase CLI (via Docker)
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        run: |
-          echo "Waiting for database to be ready..."
-          max_attempts=60
-          attempt=0
-          until docker exec supabase-db psql -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-            echo "Waiting for DB to be ready... (Attempt $attempt/$max_attempts)"
-            sleep 3
-            attempt=$((attempt+1))
-          done
-          
-          # Official alternative registry to avoid Docker Hub limits/access issues
-          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
-          
-          echo "Pulling Supabase CLI image from Amazon ECR..."
-          docker pull $CLI_IMAGE
-          
-          echo "Pushing migrations to local DB..."
-          # We use --network host so the container can reach localhost:5433 (mapping to our DB container).
-          # We mount the current directory and use the config.toml we created.
-          docker run --rm -v $PWD:/work -w /work --network host $CLI_IMAGE db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
-          
-          echo "Refreshing Cache..."
-          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
-
-      - name: Deploy Rest of the Stack
-        if: always()
-        env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        run: |
-          docker compose up -d --remove-orphans
-          
-      - name: Show Logs on Failure
-        if: failure()
-        run: |
-          echo "=== Workspace Contents ==="
-          ls -la
-          echo "=== DB Logs ==="
-          docker compose logs db --tail 100 || true
-          echo "=== All Services Status ==="
-          docker compose ps
+          # Push all migrations in /supabase/migrations/ to the project
+          supabase db push
