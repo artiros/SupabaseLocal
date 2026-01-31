@@ -134,19 +134,20 @@ jobs:
           curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_${VERSION}_linux_amd64.deb" -o supabase.deb
           
           echo "Extracting CLI..."
-          # We extract the .deb into the current folder without needing sudo
+          # We extract the .deb into the current folder
           dpkg -x supabase.deb .
-          mv usr/bin/supabase .
-          chmod +x supabase
-          ./supabase --version
+          # Rename to avoid conflict with the 'supabase/' project directory
+          mv usr/bin/supabase ./supabase-cli
+          chmod +x ./supabase-cli
+          ./supabase-cli --version
 
       - name: Apply Application Migrations (CLI)
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           echo "Pushing final migrations to localhost:5433..."
-          # Use the locally extracted binary
-          ./supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
+          # Use the renamed binary
+          ./supabase-cli db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
           
           echo "Refreshing Cache..."
           docker exec supabase-db psql -h 127.0.0.1 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
