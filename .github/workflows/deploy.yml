@@ -11,20 +11,21 @@ jobs:
     runs-on: self-hosted
     environment: Supabase
     steps:
+      - name: Pre-Deployment Cleanup
+        run: |
+          # 1. Stop existing containers if the compose file exists from a previous run
+          if [ -f "${{ github.workspace }}/docker-compose.yml" ]; then
+            docker compose -f ${{ github.workspace }}/docker-compose.yml down --remove-orphans || true
+          fi
+
+          # 2. Use Docker to clean up everything EXCEPT the volumes directory
+          # This avoids permission issues on self-hosted runners while preserving user data
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+          
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          clean: false # Prevent permission errors with Docker volumes
-
-      - name: Manual Cleanup
-        run: |
-          # Use Docker to clean up old files but keep the volumes
-          # To force a fresh DB init, uncomment the rm -rf line below
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
-          # sudo rm -rf ${{ github.workspace }}/volumes/db/data/* || true
-          
-          # Force stop everything before we re-deploy
-          docker compose -f ${{ github.workspace }}/docker-compose.yml down --remove-orphans || true
+          clean: false # We already cleaned manually; prevent permission errors with Docker volumes
 
       - name: Create .env file
         env:
