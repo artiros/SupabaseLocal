@@ -11,6 +11,12 @@ jobs:
     runs-on: self-hosted
     environment: Supabase
     steps:
+      - name: Fix Permissions for Checkout
+        run: |
+          # Use Docker's root privileges to fix permissions on the workspace
+          # This allows the runner to clean/recreate the directory during checkout
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work || true"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
