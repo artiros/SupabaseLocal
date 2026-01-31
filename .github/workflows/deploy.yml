@@ -158,8 +158,8 @@ jobs:
           fi
           
           echo "Applying migrations..."
-          # Sort migrations numerically/chronologically
-          files=$(ls migrations/*.sql | sort)
+          # Sort migrations numerically/chronologically (natural sort)
+          files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
             docker exec -i supabase-db psql -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }

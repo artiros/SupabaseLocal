@@ -192,7 +192,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./volumes/db/00-setup-schemas.sql:/docker-entrypoint-initdb.d/00-setup-schemas.sql
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql
       - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/02-supabase.sql
       - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/03-jwt.sql
