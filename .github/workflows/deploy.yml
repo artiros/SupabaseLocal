@@ -14,8 +14,14 @@ jobs:
       - name: Fix Permissions for Checkout
         run: |
           # Use Docker's root privileges to fix permissions on the workspace
-          # This allows the runner to clean/recreate the directory during checkout
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work || true"
+          # We set strict 700 permissions for the DB data folder to prevent Postgres errors
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "
+            chmod -R 777 /work && 
+            if [ -d '/work/volumes/db/data' ]; then 
+              chown -R 999:999 /work/volumes/db/data && 
+              chmod 700 /work/volumes/db/data; 
+            fi
+          " || true
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,52 +63,55 @@ jobs:
           SMTP_ADMIN_EMAIL=admin@example.com
           SMTP_HOST=supabase-mail
           SMTP_PORT=2500
-          SMTP_USER=fake_mail_user
-          SMTP_PASS=fake_mail_password
           SMTP_SENDER_NAME=TriathlonHelper
           MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
-          MAILER_URLPATHS_INVITE="/auth/v1/verify"
-          MAILER_URLPATHS_RECOVERY="/auth/v1/verify"
-          MAILER_URLPATHS_EMAIL_CHANGE="/auth/v1/verify"
           PGRST_DB_SCHEMAS=public,storage,graphql_public
-          ENABLE_PHONE_SIGNUP=false
-          ENABLE_PHONE_AUTOCONFIRM=false
           STUDIO_DEFAULT_ORGANIZATION=Triathlon
           STUDIO_DEFAULT_PROJECT=TriathlonHelper
           IMGPROXY_ENABLE_WEBP_DETECTION=true
           EOF
 
-      - name: Start Supabase Stack
+      - name: Start Database Only
         run: |
-          docker compose up -d --remove-orphans
+          docker compose up -d db
 
-      - name: Wait for Core Services (Auth Schema Creation)
-        run: |
-          echo "Waiting for Supabase services to prepare the database..."
-          # We wait for the 'auth' container to be healthy, as it handles schema creation
-          max_attempts=60
-          attempt=0
-          until [ "$(docker inspect --format='{{.State.Health.Status}}' supabase-auth)" == "healthy" ] || [ $attempt -eq $max_attempts ]; do
-            echo "Waiting for auth service... (Attempt $attempt/$max_attempts)"
-            sleep 5
-            attempt=$((attempt+1))
-          done
-          
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Core services failed to initialize in time."
-            docker logs supabase-auth --tail 50
-            exit 1
-          fi
-
-      - name: Apply Migrations using Supabase CLI (via Docker)
+      - name: Wait for DB and Bootstrap Roles
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          # Use the stable ECR image to avoid Docker Hub limits
-          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
+          echo "Waiting for database to be ready..."
+          until docker exec supabase-db pg_isready -U postgres; do
+            sleep 2
+          done
           
-          echo "Applying migrations to local instance..."
-          # --network host allows the container to reach the DB on localhost:5433
+          echo "Injecting passwords into bootstrap..."
+          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
+          
+          echo "Applying Bootstrap (Roles & Schemas)..."
+          # Run as postgres superuser to ensure roles exist for the rest of the stack
+          docker exec -i supabase-db psql -U postgres -d postgres < supabase/migrations/000-bootstrap.sql
+
+      - name: Start Rest of Stack
+        run: |
+          docker compose up -d --remove-orphans
+
+      - name: Wait for Auth Service
+        run: |
+          echo "Waiting for Supabase Auth to be healthy..."
+          max_attempts=30
+          attempt=0
+          until [ "$(docker inspect --format='{{.State.Health.Status}}' supabase-auth)" == "healthy" ] || [ $attempt -eq $max_attempts ]; do
+            echo "Waiting... (Attempt $attempt/$max_attempts)"
+            sleep 5
+            attempt=$((attempt+1))
+          done
+
+      - name: Apply Application Migrations (CLI)
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
+          echo "Pushing final migrations..."
           docker run --rm -v $PWD:/work -w /work --network host $CLI_IMAGE db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
           
           echo "Refreshing Cache..."
