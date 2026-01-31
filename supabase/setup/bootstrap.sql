@@ -6,6 +6,7 @@ CREATE SCHEMA IF NOT EXISTS extensions;
 -- Let Postgres/Supabase handle the schema for these by default to avoid friction
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 ALTER DATABASE postgres SET search_path TO public, extensions, auth;
 
 -- 2. ROLES (Atomic creation blocks)
