@@ -122,11 +122,6 @@ jobs:
           mkdir -p volumes/api
           mkdir -p volumes/logs
           
-          echo "Injecting passwords into bootstrap and roles..."
-          # Update both files for redundancy
-          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" migrations/000-bootstrap.sql > migrations/000-bootstrap.sql.tmp && mv migrations/000-bootstrap.sql.tmp migrations/000-bootstrap.sql
-          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
-          
           echo "Checking for essential SQL scripts..."
           ls -l migrations/000-bootstrap.sql migrations/002-base-tables.sql
           
@@ -140,6 +135,8 @@ jobs:
           docker compose up -d db
           
       - name: Apply Migrations (Core + App)
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           echo "Waiting for database to be ready..."
           max_attempts=60
@@ -163,8 +160,8 @@ jobs:
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
-            # Use -v ON_ERROR_STOP=1 to ensure the build fails if a migration fails
-            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
+            # Pass password as a variable to psql to avoid sed issues
+            docker exec -i supabase-db psql -v db_pass="$POSTGRES_PASSWORD" -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
           echo "✅ All migrations applied successfully."
           
