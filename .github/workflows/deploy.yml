@@ -108,13 +108,22 @@ jobs:
             attempt=$((attempt+1))
           done
 
+      - name: Install Supabase CLI (Binary)
+        run: |
+          echo "Downloading Supabase CLI..."
+          # Use a stable version (v1.204.0)
+          curl -L https://github.com/supabase/cli/releases/download/v1.204.0/supabase_1.204.0_linux_amd64.tar.gz -o supabase_cli.tar.gz
+          tar -xzf supabase_cli.tar.gz
+          chmod +x supabase
+          ./supabase --version
+
       - name: Apply Application Migrations (CLI)
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
-          echo "Pushing final migrations..."
-          docker run --rm -v $PWD:/work -w /work --network host $CLI_IMAGE db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
+          echo "Pushing final migrations to localhost:5433..."
+          # Use the locally downloaded binary
+          ./supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
           
           echo "Refreshing Cache..."
           docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
