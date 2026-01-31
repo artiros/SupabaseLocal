@@ -143,19 +143,16 @@ jobs:
             attempt=$((attempt+1))
           done
           
-          echo "Pulling Supabase CLI Docker image..."
-          docker pull supabase/cli:latest
+          # Official alternative registry to avoid Docker Hub limits/access issues
+          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
           
-          echo "Initializing Supabase Project (if needed)..."
-          # Run init only if config.toml is missing. We mount PWD to /work inside the container.
-          if [ ! -f "supabase/config.toml" ]; then
-            docker run --rm -v $PWD:/work -w /work supabase/cli init
-          fi
+          echo "Pulling Supabase CLI image from Amazon ECR..."
+          docker pull $CLI_IMAGE
           
           echo "Pushing migrations to local DB..."
-          # Use the CLI via Docker to push all migrations.
           # We use --network host so the container can reach localhost:5433 (mapping to our DB container).
-          docker run --rm -v $PWD:/work -w /work --network host supabase/cli db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
+          # We mount the current directory and use the config.toml we created.
+          docker run --rm -v $PWD:/work -w /work --network host $CLI_IMAGE db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
           
           echo "Refreshing Cache..."
           docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
