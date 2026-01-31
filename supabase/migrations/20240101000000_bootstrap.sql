@@ -31,10 +31,22 @@ CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS storage;
 CREATE SCHEMA IF NOT EXISTS _supabase;
 
--- 6. PERMISSIONS
+-- 6. FUNCTIONS (Directly used by RLS)
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+$$;
+
+CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
+  select nullif(current_setting('request.jwt.claim.role', true), '')::text;
+$$;
+
+-- 7. PERMISSIONS
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
 GRANT ALL ON SCHEMA public TO supabase_admin;
 GRANT ALL ON SCHEMA auth TO supabase_admin, supabase_auth_admin;
 GRANT ALL ON SCHEMA storage TO supabase_admin, supabase_storage_admin;
+
+GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated, service_role;
