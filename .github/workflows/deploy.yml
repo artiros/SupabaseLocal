@@ -156,6 +156,9 @@ jobs:
             exit 1
           fi
           
+          echo "=== Diagnostic: Listing Roles ==="
+          docker exec supabase-db psql -U postgres -d postgres -c "\du"
+          
           echo "Applying migrations..."
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do

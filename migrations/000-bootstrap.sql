@@ -9,51 +9,33 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS "vector" SCHEMA extensions;
 
 -- 2. ROLES (Created independently with error handling)
-DO $$
-BEGIN
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-            CREATE ROLE anon NOLOGIN NOINHERIT;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE anon NOLOGIN NOINHERIT;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role anon already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-            CREATE ROLE authenticated NOLOGIN NOINHERIT;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE authenticated NOLOGIN NOINHERIT;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role authenticated already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-            CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role service_role already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
-            CREATE ROLE supabase_admin LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE supabase_admin LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role supabase_admin already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_auth_admin') THEN
-            CREATE ROLE supabase_auth_admin NOINHERIT CREATEROLE LOGIN;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE supabase_auth_admin NOINHERIT CREATEROLE LOGIN;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role supabase_auth_admin already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_storage_admin') THEN
-            CREATE ROLE supabase_storage_admin NOINHERIT LOGIN;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
+DO $$ BEGIN
+    CREATE ROLE supabase_storage_admin NOINHERIT LOGIN;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role supabase_storage_admin already exists'; END $$;
 
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
-            CREATE ROLE authenticator NOINHERIT LOGIN;
-        END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL; END;
-END
-$$;
+DO $$ BEGIN
+    CREATE ROLE authenticator NOINHERIT LOGIN;
+EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'role authenticator already exists'; END $$;
 
 -- 3. ROLE PASSWORDS & MEMBERSHIPS (Linear execution)
 -- These use the password injected by the deployment script
@@ -75,7 +57,6 @@ CREATE SCHEMA IF NOT EXISTS _analytics;
 CREATE SCHEMA IF NOT EXISTS _realtime;
 
 -- 5. SEARCH PATH
-ALTER DATABASE postgres SET search_path TO public, auth, storage, extensions;
 SET search_path TO public, auth, storage, extensions;
 
 -- 6. AUTH FUNCTIONS
