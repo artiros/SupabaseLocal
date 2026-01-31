@@ -1,10 +1,14 @@
--- Create enum for source
-create type personal_best_source as enum ('manual', 'auto');
+-- Create enum for source (wrapped in guard for idempotency)
+DO $$ BEGIN
+  CREATE TYPE personal_best_source AS ENUM ('manual', 'auto');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Create Personal Bests table
 create table if not exists personal_bests (
   id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) not null,
+  user_id uuid not null, -- Removed hard reference to auth.users to avoid boot-order errors
   activity_type text not null, -- 'Run', 'Ride', 'Swim'
   distance_meters numeric not null,
   time_seconds numeric not null,
