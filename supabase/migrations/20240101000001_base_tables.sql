@@ -1,9 +1,9 @@
 -- Database Foundation (Universal Base Tables)
 -- This script creates all core tables linked to standard Supabase schemas.
 
--- 1. PROFILES (Standard Link to Auth)
+-- 1. PROFILES (Soft Link to Auth to avoid boot-order errors)
 CREATE TABLE IF NOT EXISTS public.profiles (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY, -- Will be linked via FK in a later migration
   email text UNIQUE,
   name text,
   dob text,
@@ -23,7 +23,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 -- 2. ACTIVITIES
 CREATE TABLE IF NOT EXISTS public.activities (
   id text PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid,
   name text,
   type text,
   start_date timestamptz,
@@ -45,7 +45,7 @@ CREATE POLICY "Users can view their own activities" ON public.activities FOR ALL
 -- 3. PLANNED ACTIVITIES
 CREATE TABLE IF NOT EXISTS public.planned_activities (
   id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid,
   name text,
   type text,
   planned_date date,
@@ -61,7 +61,7 @@ CREATE POLICY "Users can view their own planned activities" ON public.planned_ac
 -- 4. GOALS
 CREATE TABLE IF NOT EXISTS public.goals (
   id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid,
   name text,
   type text,
   target_value numeric,
@@ -77,7 +77,7 @@ CREATE POLICY "Users can view their own goals" ON public.goals FOR ALL USING (au
 -- 5. RACES
 CREATE TABLE IF NOT EXISTS public.races (
   id uuid DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid,
   name text,
   date date,
   type text,
@@ -91,7 +91,7 @@ CREATE POLICY "Users can view their own races" ON public.races FOR ALL USING (au
 
 -- 6. TRAINING PLANS
 CREATE TABLE IF NOT EXISTS public.training_plans (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY,
   info_text text,
   constraints_json jsonb,
   updated_at timestamptz DEFAULT now()
@@ -103,7 +103,7 @@ CREATE POLICY "Users can view their own plans" ON public.training_plans FOR ALL 
 -- 7. TRAINING PLAN SESSIONS
 CREATE TABLE IF NOT EXISTS public.training_plan_sessions (
   id text PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid,
   day_index integer,
   week_offset integer,
   type text,
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
   key text PRIMARY KEY,
   value jsonb NOT NULL,
   updated_at timestamptz DEFAULT now(),
-  updated_by uuid REFERENCES auth.users(id)
+  updated_by uuid
 );
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
   content text,
   metadata jsonb,
   embedding vector(384),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE
+  user_id uuid
 );
 
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
