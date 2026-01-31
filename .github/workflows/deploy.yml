@@ -123,8 +123,8 @@ jobs:
           mkdir -p volumes/logs
           
           echo "Injecting passwords into roles.sql..."
-          # Use a temporary file to avoid corruption if sed fails
-          sed "s#REPLACE_ME_PASSWORD#$POSTGRES_PASSWORD#g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
+          # Use | as delimiter to handle passwords with / or #
+          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
           
           echo "Checking for essential SQL scripts..."
           ls -l migrations/00-supabase-core.sql migrations/01-base-tables.sql volumes/db/roles.sql
