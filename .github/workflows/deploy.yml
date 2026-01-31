@@ -124,24 +124,29 @@ jobs:
       - name: Apply Migrations
         run: |
           echo "Waiting for database to be ready..."
-          max_attempts=30
+          max_attempts=60
           attempt=0
-          until docker exec supabase-db pg_isready -U postgres > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
-            sleep 2
+          # Wait for pg_isready AND for the 'postgres' role to be available
+          until docker exec supabase-db psql -U postgres -d postgres -c "SELECT 1" > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+            echo "Waiting for DB roles and connection... (Attempt $attempt/$max_attempts)"
+            sleep 3
             attempt=$((attempt+1))
           done
           
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Database failed to become ready in time."
+            echo "❌ Database/Roles failed to become ready in time."
+            docker logs supabase-db --tail 50
             exit 1
           fi
           
           echo "Applying migrations..."
-          for f in migrations/*.sql; do
+          # Sort migrations numerically/chronologically
+          files=$(ls migrations/*.sql | sort)
+          for f in $files; do
             echo "Running $f..."
-            docker exec -i supabase-db psql -U postgres -d postgres < "$f"
+            docker exec -i supabase-db psql -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
-          echo "✅ Migrations complete."
+          echo "✅ All migrations applied successfully."
           
       - name: Show Logs on Failure
         if: failure()
