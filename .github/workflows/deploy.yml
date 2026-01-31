@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Fix Permissions for Checkout
         run: |
-          # Phase 1: Clear everything for the runner
-          # We make the entire workspace writable so the runner can clean it
+          # Use Docker's root privileges to unlock the workspace for the runner
+          # We make EVERYTHING writable so the 'actions/checkout' cleanup can work
           docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work || true"
 
       - name: Checkout repository
@@ -67,7 +67,7 @@ jobs:
 
       - name: Prepare DB Directories and Permissions
         run: |
-          # Phase 2: Secure the DB folder specifically for Postgres
+          # Phase 2: Secure the DB folder specifically for Postgres boot
           mkdir -p volumes/db/data
           docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "
             chown -R 999:999 /work/volumes/db/data && 
@@ -82,8 +82,9 @@ jobs:
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          echo "Waiting for database to be ready..."
-          until docker exec supabase-db pg_isready -U postgres; do
+          echo "Waiting for database to be ready via TCP..."
+          # Use TCP (127.0.0.1) instead of socket to avoid permission issues during bootstrap
+          until docker exec supabase-db pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
             sleep 2
           done
           
@@ -91,7 +92,8 @@ jobs:
           sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
           
           echo "Applying Bootstrap (Roles & Schemas)..."
-          docker exec -i supabase-db psql -U postgres -d postgres < supabase/migrations/000-bootstrap.sql
+          # Run the bootstrap via the 127.0.0.1 bridge
+          docker exec -i supabase-db psql -h 127.0.0.1 -U postgres -d postgres < supabase/migrations/000-bootstrap.sql
 
       - name: Start Rest of Stack
         run: |
@@ -111,19 +113,16 @@ jobs:
       - name: Install Supabase CLI (Binary)
         run: |
           echo "Downloading Supabase CLI..."
-          # Use a stable version (v1.204.0)
           curl -L https://github.com/supabase/cli/releases/download/v1.204.0/supabase_1.204.0_linux_amd64.tar.gz -o supabase_cli.tar.gz
           tar -xzf supabase_cli.tar.gz
           chmod +x supabase
-          ./supabase --version
 
       - name: Apply Application Migrations (CLI)
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           echo "Pushing final migrations to localhost:5433..."
-          # Use the locally downloaded binary
-          ./supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
+          ./supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@127.0.0.1:5433/postgres"
           
           echo "Refreshing Cache..."
-          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
+          docker exec supabase-db psql -h 127.0.0.1 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
