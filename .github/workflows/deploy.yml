@@ -119,21 +119,18 @@ jobs:
         run: |
           mkdir -p volumes/db/data volumes/storage volumes/api volumes/logs
           
-          echo "Injecting passwords..."
-          # Use a unique placeholder to avoid accidental replacements
-          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" migrations/000-bootstrap.sql
+          echo "Injecting passwords for CLI migration..."
+          # Replace placeholder in the bootstrap script
+          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
           
-          echo "Checking for essential SQL scripts..."
-          ls -l migrations/000-bootstrap.sql migrations/002-base-tables.sql
-          
-          # Fix permissions
+          # Fix permissions for the volumes
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
 
       - name: Start Database Only
         run: |
           docker compose up -d db
           
-      - name: Apply Migrations (Core + App)
+      - name: Apply Migrations using Supabase CLI
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
@@ -146,21 +143,22 @@ jobs:
             attempt=$((attempt+1))
           done
           
-          echo "Applying migrations..."
-          # Sort naturally (V) and exclude non-SQL files
-          files=$(ls migrations/*.sql | sort -V)
-          for f in $files; do
-            echo "Running $f..."
-            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
-          done
+          echo "Installing Supabase CLI..."
+          npm install -g supabase
+          
+          echo "Initializing Supabase Project..."
+          # Run init only if config.toml is missing
+          if [ ! -f "supabase/config.toml" ]; then
+            supabase init
+          fi
+          
+          echo "Pushing migrations to local DB..."
+          # Use the CLI to push all migrations in supabase/migrations/
+          # We use --db-url to point to our local docker container
+          # Port 5433 is used as per docker-compose.yml mapping
+          supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
           
           echo "Refreshing Cache..."
-          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
-          
-          echo "=== Diagnostic: Listing Tables in 'public' schema ==="
-          docker exec supabase-db psql -U postgres -d postgres -c "\dt public.*"
-          
-          echo "Notifying PostgREST to reload schema cache..."
           docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
 
       - name: Deploy Rest of the Stack
