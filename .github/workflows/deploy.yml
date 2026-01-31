@@ -61,7 +61,7 @@ jobs:
           SMTP_PORT=2500
           SMTP_SENDER_NAME=TriathlonHelper
           MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
-          PGRST_DB_SCHEMAS=public,storage,graphql_public
+          PGRST_DB_SCHEMAS=public,storage
           STUDIO_DEFAULT_ORGANIZATION=Triathlon
           STUDIO_DEFAULT_PROJECT=TriathlonHelper
           IMGPROXY_ENABLE_WEBP_DETECTION=true
