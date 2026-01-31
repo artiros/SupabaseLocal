@@ -1,32 +1,103 @@
-name: Deploy Migrations to Supabase (Cloud)
+name: Deploy SupabaseLocal (Self-Hosted)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Cloud Migration Push
-    runs-on: ubuntu-latest
+    name: Local Server Deployment
+    runs-on: self-hosted
     environment: Supabase
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 1.204.0
-
-      - name: Deploy Migrations to Remote Project
+      - name: Create .env file
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ANON_KEY: ${{ secrets.ANON_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+          DASHBOARD_USERNAME: ${{ secrets.DASHBOARD_USERNAME }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
-          # Link to your Cloud project using its unique ID (abcde-fghij-klmn)
-          # We use the DB password to authenticate the push
-          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} -p ${{ secrets.SUPABASE_DB_PASSWORD }}
+          cat <<EOF > .env
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          JWT_SECRET=$JWT_SECRET
+          ANON_KEY=$ANON_KEY
+          SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+          DASHBOARD_USERNAME=$DASHBOARD_USERNAME
+          DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
+          PG_META_CRYPTO_KEY=REPLACE_ME_PG_META_CRYPTO_KEY_32_CHARS
+          POSTGRES_HOST=db
+          POSTGRES_DB=postgres
+          POSTGRES_PORT=5432
+          KONG_HTTP_PORT=8100
+          KONG_HTTPS_PORT=8143
+          SERVER_IP=$SERVER_IP
+          SUPABASE_PUBLIC_URL=http://$SERVER_IP:8100
+          API_EXTERNAL_URL=http://$SERVER_IP:8100
+          SITE_URL=http://$SERVER_IP:7001
+          ADDITIONAL_REDIRECT_URLS=http://$SERVER_IP:7001,http://localhost:5173,http://localhost:3000
+          JWT_EXPIRY=3600
+          DISABLE_SIGNUP=false
+          ENABLE_EMAIL_SIGNUP=true
+          ENABLE_ANONYMOUS_USERS=false
+          ENABLE_EMAIL_AUTOCONFIRM=true
+          SMTP_ADMIN_EMAIL=admin@example.com
+          SMTP_HOST=supabase-mail
+          SMTP_PORT=2500
+          SMTP_USER=fake_mail_user
+          SMTP_PASS=fake_mail_password
+          SMTP_SENDER_NAME=TriathlonHelper
+          MAILER_URLPATHS_CONFIRMATION="/auth/v1/verify"
+          MAILER_URLPATHS_INVITE="/auth/v1/verify"
+          MAILER_URLPATHS_RECOVERY="/auth/v1/verify"
+          MAILER_URLPATHS_EMAIL_CHANGE="/auth/v1/verify"
+          PGRST_DB_SCHEMAS=public,storage,graphql_public
+          ENABLE_PHONE_SIGNUP=false
+          ENABLE_PHONE_AUTOCONFIRM=false
+          STUDIO_DEFAULT_ORGANIZATION=Triathlon
+          STUDIO_DEFAULT_PROJECT=TriathlonHelper
+          IMGPROXY_ENABLE_WEBP_DETECTION=true
+          EOF
+
+      - name: Start Supabase Stack
+        run: |
+          docker compose up -d --remove-orphans
+
+      - name: Wait for Core Services (Auth Schema Creation)
+        run: |
+          echo "Waiting for Supabase services to prepare the database..."
+          # We wait for the 'auth' container to be healthy, as it handles schema creation
+          max_attempts=60
+          attempt=0
+          until [ "$(docker inspect --format='{{.State.Health.Status}}' supabase-auth)" == "healthy" ] || [ $attempt -eq $max_attempts ]; do
+            echo "Waiting for auth service... (Attempt $attempt/$max_attempts)"
+            sleep 5
+            attempt=$((attempt+1))
+          done
           
-          # Push all migrations in /supabase/migrations/ to the project
-          supabase db push
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Core services failed to initialize in time."
+            docker logs supabase-auth --tail 50
+            exit 1
+          fi
+
+      - name: Apply Migrations using Supabase CLI (via Docker)
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          # Use the stable ECR image to avoid Docker Hub limits
+          CLI_IMAGE="public.ecr.aws/supabase/cli:v1.204.0"
+          
+          echo "Applying migrations to local instance..."
+          # --network host allows the container to reach the DB on localhost:5433
+          docker run --rm -v $PWD:/work -w /work --network host $CLI_IMAGE db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
+          
+          echo "Refreshing Cache..."
+          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
