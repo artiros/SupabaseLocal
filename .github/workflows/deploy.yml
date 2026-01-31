@@ -130,7 +130,7 @@ jobs:
         run: |
           docker compose up -d db
           
-      - name: Apply Migrations using Supabase CLI
+      - name: Apply Migrations using Supabase CLI (via Docker)
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
@@ -143,20 +143,19 @@ jobs:
             attempt=$((attempt+1))
           done
           
-          echo "Installing Supabase CLI..."
-          npm install -g supabase
+          echo "Pulling Supabase CLI Docker image..."
+          docker pull supabase/cli:latest
           
-          echo "Initializing Supabase Project..."
-          # Run init only if config.toml is missing
+          echo "Initializing Supabase Project (if needed)..."
+          # Run init only if config.toml is missing. We mount PWD to /work inside the container.
           if [ ! -f "supabase/config.toml" ]; then
-            supabase init
+            docker run --rm -v $PWD:/work -w /work supabase/cli init
           fi
           
           echo "Pushing migrations to local DB..."
-          # Use the CLI to push all migrations in supabase/migrations/
-          # We use --db-url to point to our local docker container
-          # Port 5433 is used as per docker-compose.yml mapping
-          supabase db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
+          # Use the CLI via Docker to push all migrations.
+          # We use --network host so the container can reach localhost:5433 (mapping to our DB container).
+          docker run --rm -v $PWD:/work -w /work --network host supabase/cli db push --db-url "postgresql://postgres:$POSTGRES_PASSWORD@localhost:5433/postgres"
           
           echo "Refreshing Cache..."
           docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
