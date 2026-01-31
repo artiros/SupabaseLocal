@@ -13,15 +13,9 @@ jobs:
     steps:
       - name: Fix Permissions for Checkout
         run: |
-          # Use Docker's root privileges to fix permissions on the workspace
-          # We set strict 700 permissions for the DB data folder to prevent Postgres errors
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "
-            chmod -R 777 /work && 
-            if [ -d '/work/volumes/db/data' ]; then 
-              chown -R 999:999 /work/volumes/db/data && 
-              chmod 700 /work/volumes/db/data; 
-            fi
-          " || true
+          # Phase 1: Clear everything for the runner
+          # We make the entire workspace writable so the runner can clean it
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "chmod -R 777 /work || true"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,6 +65,15 @@ jobs:
           IMGPROXY_ENABLE_WEBP_DETECTION=true
           EOF
 
+      - name: Prepare DB Directories and Permissions
+        run: |
+          # Phase 2: Secure the DB folder specifically for Postgres
+          mkdir -p volumes/db/data
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "
+            chown -R 999:999 /work/volumes/db/data && 
+            chmod 700 /work/volumes/db/data
+          "
+
       - name: Start Database Only
         run: |
           docker compose up -d db
@@ -88,7 +91,6 @@ jobs:
           sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/000-bootstrap.sql
           
           echo "Applying Bootstrap (Roles & Schemas)..."
-          # Run as postgres superuser to ensure roles exist for the rest of the stack
           docker exec -i supabase-db psql -U postgres -d postgres < supabase/migrations/000-bootstrap.sql
 
       - name: Start Rest of Stack
