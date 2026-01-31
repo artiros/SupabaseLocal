@@ -7,7 +7,6 @@ CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 ALTER DATABASE postgres SET search_path TO public, extensions, auth;
-DO $$ BEGIN GRANT EXECUTE ON FUNCTION pg_read_file(text) TO postgres; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- 2. ROLES (Atomic creation blocks)
 DO $$ BEGIN CREATE ROLE anon NOLOGIN NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;

@@ -105,12 +105,12 @@ jobs:
           fi
           
           echo "Injecting passwords into bootstrap..."
-          # Update path to match new timestamped name
-          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/migrations/20240101000000_bootstrap.sql
+          # Update path to match new location
+          sed -i "s|DB_PASSWORD_PLACEHOLDER|$POSTGRES_PASSWORD|g" supabase/setup/bootstrap.sql
           
           echo "Applying Bootstrap (Roles & Schemas)..."
           # Run the bootstrap via the 127.0.0.1 bridge
-          docker exec -i supabase-db psql -h 127.0.0.1 -U postgres -d postgres < supabase/migrations/20240101000000_bootstrap.sql
+          docker exec -i supabase-db psql -h 127.0.0.1 -U postgres -d postgres < supabase/setup/bootstrap.sql
 
       - name: Start Rest of Stack
         run: |
