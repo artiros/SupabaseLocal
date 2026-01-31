@@ -192,7 +192,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/00-roles.sql
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:

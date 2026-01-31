@@ -161,10 +161,107 @@ CREATE POLICY "Authenticated can insert races" ON public.races FOR INSERT WITH C
 DROP POLICY IF EXISTS "Authenticated can update races" ON public.races;
 CREATE POLICY "Authenticated can update races" ON public.races FOR UPDATE USING (true);
 
+-- Training Plans table
+CREATE TABLE IF NOT EXISTS public.training_plans (
+  user_id uuid REFERENCES auth.users(id) NOT NULL PRIMARY KEY,
+  info_text text,
+  constraints_json jsonb,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.training_plans ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can all on training_plans" ON public.training_plans;
+CREATE POLICY "Users can all on training_plans" ON public.training_plans FOR ALL USING (auth.uid() = user_id);
+
+-- Training Plan Sessions table
+CREATE TABLE IF NOT EXISTS public.training_plan_sessions (
+  id text PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) NOT NULL,
+  day_index integer,
+  week_offset integer,
+  type text,
+  description text,
+  minutes integer,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.training_plan_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can all on training_plan_sessions" ON public.training_plan_sessions;
+CREATE POLICY "Users can all on training_plan_sessions" ON public.training_plan_sessions FOR ALL USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_training_plan_sessions_user_id ON public.training_plan_sessions(user_id);
+
+-- System Settings table
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    key text PRIMARY KEY,
+    value jsonb NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_by uuid REFERENCES auth.users(id)
+);
+
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.system_settings;
+CREATE POLICY "Enable read access for all users" ON public.system_settings FOR SELECT USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Enable write access for admins only" ON public.system_settings;
+CREATE POLICY "Enable write access for admins only" ON public.system_settings FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.user_id = auth.uid() AND profiles.is_admin = true));
+
+-- Documents table (Vector enabled)
+CREATE TABLE IF NOT EXISTS public.documents (
+  id bigserial PRIMARY KEY,
+  content text,
+  metadata jsonb,
+  embedding vector(384),
+  user_id uuid REFERENCES auth.users(id)
+);
+
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read all documents" ON public.documents;
+CREATE POLICY "Users can read all documents" ON public.documents FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own documents" ON public.documents;
+CREATE POLICY "Users can insert their own documents" ON public.documents FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Vector search function
+CREATE OR REPLACE FUNCTION public.match_documents (
+  query_embedding vector(384),
+  match_threshold float,
+  match_count int
+)
+RETURNS TABLE (
+  id bigint,
+  content text,
+  metadata jsonb,
+  similarity float
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    documents.id,
+    documents.content,
+    documents.metadata,
+    1 - (documents.embedding <=> query_embedding) AS similarity
+  FROM public.documents
+  WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
+  ORDER BY documents.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+
 -- Grant permissions
 GRANT ALL ON public.activities TO anon, authenticated;
 GRANT ALL ON public.planned_activities TO anon, authenticated;
 GRANT ALL ON public.goals TO anon, authenticated;
 GRANT ALL ON public.goals_milestones TO anon, authenticated;
 GRANT ALL ON public.races TO anon, authenticated;
+GRANT ALL ON public.training_plans TO anon, authenticated;
+GRANT ALL ON public.training_plan_sessions TO anon, authenticated;
+GRANT ALL ON public.system_settings TO authenticated;
+GRANT ALL ON public.documents TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;

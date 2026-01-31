@@ -122,12 +122,13 @@ jobs:
           mkdir -p volumes/api
           mkdir -p volumes/logs
           
-          echo "Injecting passwords into roles.sql..."
-          # Use | as delimiter to handle passwords with / or #
+          echo "Injecting passwords into roles.sql and 000-roles.sql..."
+          # Update both files to be sure
           sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" volumes/db/roles.sql > volumes/db/roles.sql.tmp && mv volumes/db/roles.sql.tmp volumes/db/roles.sql
+          sed "s|REPLACE_ME_PASSWORD|$POSTGRES_PASSWORD|g" migrations/000-roles.sql > migrations/000-roles.sql.tmp && mv migrations/000-roles.sql.tmp migrations/000-roles.sql
           
           echo "Checking for essential SQL scripts..."
-          ls -l migrations/00-supabase-core.sql migrations/01-base-tables.sql volumes/db/roles.sql
+          ls -l migrations/000-roles.sql migrations/001-supabase-core.sql migrations/002-base-tables.sql
           
           # Use docker to fix permissions
           docker run --rm -v $PWD/volumes:/target alpine sh -c "chmod -R 777 /target && chown -R 999:999 /target/db"
@@ -159,7 +160,8 @@ jobs:
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
-            docker exec -i supabase-db psql -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
+            # Use -v ON_ERROR_STOP=1 to ensure the build fails if a migration fails
+            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
           echo "✅ All migrations applied successfully."
           

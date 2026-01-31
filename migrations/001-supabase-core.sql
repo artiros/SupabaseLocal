@@ -13,6 +13,7 @@ CREATE SCHEMA IF NOT EXISTS _realtime;
 -- Enable common extensions (must exist in search path or be explicitly qualified)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "vector" SCHEMA extensions;
 
 -- Set search path to include extensions
 ALTER DATABASE postgres SET search_path TO public, auth, storage, extensions;
