@@ -59,6 +59,7 @@ jobs:
           
           cat <<EOF > .env
           # Secrets (Injected from GitHub)
+          POSTGRES_USER=postgres
           POSTGRES_PASSWORD=$POSTGRES_PASSWORD
           JWT_SECRET=$JWT_SECRET
           ANON_KEY=$ANON_KEY
