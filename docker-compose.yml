@@ -189,9 +189,14 @@ services:
     ports:
       - 5433:5432
     environment:
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/00-roles.sql
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/01-supabase.sql
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/02-jwt.sql
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/03-realtime.sql
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/04-webhooks.sql
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:

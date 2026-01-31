@@ -17,6 +17,13 @@ jobs:
           if [ -f "docker-compose.yml" ]; then
             docker compose down --remove-orphans || true
           fi
+          
+          # 2. Use Docker to clean up everything EXCEPT the volumes directory
+          docker run --rm -v $PWD:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+          
+          # CRITICAL: Wipe the DB data directory one last time to fix the "schema auth missing" issue 
+          # by letting the new docker-entrypoint-initdb.d scripts run from a clean state.
+          docker run --rm -v $PWD/volumes/db/data:/data alpine sh -c "rm -rf /data/* || true"
 
       - name: Environment Diagnostics
         run: |
