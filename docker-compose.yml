@@ -188,16 +188,18 @@ services:
     restart: unless-stopped
     ports:
       - 5433:5432
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql
       - ./volumes/db/data:/var/lib/postgresql/data
       - db-config:/etc/postgresql-custom
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 20
+      start_period: 60s
     env_file:
       - .env
     command: [ "postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "log_min_messages=error" ]

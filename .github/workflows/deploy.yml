@@ -19,8 +19,11 @@ jobs:
       - name: Manual Cleanup
         run: |
           # Use Docker to clean up everything EXCEPT the volumes/db/data directory
-          # this avoids the EACCES error and preserves your database
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+          # Wait, actually we NEED to wipe db/data one last time to fix the "Skipping Initialization" bug
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} + && rm -rf /work/volumes/db/data/*" || true
+          
+          # Force stop everything before we re-deploy
+          docker compose -f ${{ github.workspace }}/docker-compose.yml down --remove-orphans || true
 
       - name: Create .env file
         env:
