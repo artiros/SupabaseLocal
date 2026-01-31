@@ -18,9 +18,10 @@ jobs:
 
       - name: Manual Cleanup
         run: |
-          # Use Docker to clean up everything EXCEPT the volumes/db/data directory
-          # Wait, actually we NEED to wipe db/data one last time to fix the "Skipping Initialization" bug
-          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} + && rm -rf /work/volumes/db/data/*" || true
+          # Use Docker to clean up old files but keep the volumes
+          # To force a fresh DB init, uncomment the rm -rf line below
+          docker run --rm -v ${{ github.workspace }}:/work alpine sh -c "find /work -mindepth 1 -maxdepth 1 ! -name 'volumes' -exec rm -rf {} +" || true
+          # sudo rm -rf ${{ github.workspace }}/volumes/db/data/* || true
           
           # Force stop everything before we re-deploy
           docker compose -f ${{ github.workspace }}/docker-compose.yml down --remove-orphans || true
@@ -116,18 +117,30 @@ jobs:
       - name: Deploy with Docker Compose
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ANON_KEY: ${{ secrets.ANON_KEY }}
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
-          DASHBOARD_USERNAME: ${{ secrets.DASHBOARD_USERNAME }}
-          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
-          echo "Current working directory: $(pwd)"
-          echo "Checking directory status..."
-          ls -la
-          echo "Starting stack..."
           docker compose -f ${{ github.workspace }}/docker-compose.yml up -d --remove-orphans
+          
+      - name: Apply Migrations
+        run: |
+          echo "Waiting for database to be ready..."
+          max_attempts=30
+          attempt=0
+          until docker exec supabase-db pg_isready -U postgres > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Database failed to become ready in time."
+            exit 1
+          fi
+          
+          echo "Applying migrations..."
+          for f in migrations/*.sql; do
+            echo "Running $f..."
+            docker exec -i supabase-db psql -U postgres -d postgres < "$f"
+          done
+          echo "✅ Migrations complete."
           
       - name: Show Logs on Failure
         if: failure()
