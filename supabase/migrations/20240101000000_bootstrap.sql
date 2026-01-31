@@ -3,6 +3,8 @@
 
 -- 1. EXTENSIONS SCHEMA
 CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
 DO $$ BEGIN GRANT EXECUTE ON FUNCTION pg_read_file(text) TO postgres; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- 2. ROLES (Atomic creation blocks)
