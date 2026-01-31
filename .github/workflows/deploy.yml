@@ -162,6 +162,12 @@ jobs:
             docker exec -i supabase-db psql -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
           echo "✅ All migrations applied successfully."
+          
+          echo "=== Diagnostic: Listing Tables in 'public' schema ==="
+          docker exec supabase-db psql -U postgres -d postgres -c "\dt public.*"
+          
+          echo "Notifying PostgREST to reload schema cache..."
+          docker exec supabase-db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
 
       - name: Deploy Rest of the Stack
         env:
