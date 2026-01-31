@@ -151,7 +151,7 @@ jobs:
           files=$(ls migrations/*.sql | sort -V)
           for f in $files; do
             echo "Running $f..."
-            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || echo "⚠️ Warning: $f had issues but continuing..."
+            docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$f" || { echo "❌ Failed on $f"; exit 1; }
           done
           
           echo "Refreshing Cache..."
